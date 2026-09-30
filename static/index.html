@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PauliGuard</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    body { font-family: Inter, system-ui, sans-serif; margin:0; background:#0b1020; color:#e8ecf4; }
+    header { padding:24px 32px; border-bottom:1px solid #27304a; }
+    h1 { margin:0 0 6px; font-size:28px; }
+    main { max-width:1200px; margin:0 auto; padding:24px; }
+    .grid { display:grid; grid-template-columns:340px 1fr; gap:20px; }
+    .card { background:#12182a; border:1px solid #27304a; border-radius:14px; padding:18px; margin-bottom:18px; }
+    label { display:block; margin-top:12px; font-size:13px; color:#aeb7cd; }
+    input, select { width:100%; box-sizing:border-box; margin-top:5px; padding:10px; border-radius:8px; border:1px solid #36415d; background:#0e1424; color:#fff; }
+    button { width:100%; margin-top:16px; padding:11px; border:0; border-radius:8px; background:#6ea8fe; color:#08101f; font-weight:700; cursor:pointer; }
+    .decision { font-size:26px; font-weight:800; margin:8px 0; }
+    .muted { color:#99a4bc; font-size:13px; }
+    .metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .metric { background:#0e1424; padding:14px; border-radius:10px; }
+    .metric b { display:block; font-size:20px; margin-top:4px; }
+    pre { white-space:pre-wrap; word-break:break-word; }
+    @media(max-width:800px){ .grid{grid-template-columns:1fr;} .metrics{grid-template-columns:1fr 1fr;} }
+  </style>
+</head>
+<body>
+<header>
+  <h1>PauliGuard</h1>
+  <div class="muted">Non-ML prototype for teleportation-based QDS threat detection</div>
+</header>
+<main>
+  <div class="grid">
+    <section>
+      <div class="card">
+        <label>Scenario</label>
+        <select id="scenario">
+          <option value="legitimate">Legitimate</option>
+          <option value="forgery_n0">Forgery (n=0)</option>
+          <option value="forgery_exposed">Forgery (exposed keys)</option>
+          <option value="impersonation">Impersonation</option>
+          <option value="replay">Replay</option>
+          <option value="unauthorized">Unauthorized verification</option>
+          <option value="channel_intercept_resend">Channel manipulation</option>
+        </select>
+        <label>Public-key copies exposed (n)</label><input id="n" type="number" value="0" min="0" max="20"/>
+        <label>Block length (λ)</label><input id="lambda" type="number" value="100" min="8" max="5000"/>
+        <label>Blocks (l)</label><input id="blocks" type="number" value="8" min="1" max="256"/>
+        <label>Noise ε</label><input id="noise" type="number" value="0.02" min="0" max="1" step="0.01"/>
+        <label>Mismatch threshold s</label><input id="threshold" type="number" value="0.20" min="0" max="1" step="0.01"/>
+        <label>Bell witness tests</label><input id="bell" type="number" value="200" min="20" max="10000"/>
+        <label>Random seed</label><input id="seed" type="number" value="42" min="0"/>
+        <button onclick="runScenario()">Run Security Analysis</button>
+      </div>
+      <div class="card muted">
+        Replay and authorization are checked by the classical ledger. The quantum statistics do not pretend to detect replay by themselves.
+      </div>
+    </section>
+    <section>
+      <div class="card">
+        <div class="muted">Decision</div>
+        <div id="decision" class="decision">Run a scenario</div>
+        <div id="runtime" class="muted"></div>
+      </div>
+      <div class="card metrics">
+        <div class="metric"><span class="muted">F(n)</span><b id="f">–</b></div>
+        <div class="metric"><span class="muted">q = 1 − F(n)</span><b id="q">–</b></div>
+        <div class="metric"><span class="muted">F(n)^λ</span><b id="bound">–</b></div>
+        <div class="metric"><span class="muted">Teleportation fidelity</span><b id="tf">–</b></div>
+        <div class="metric"><span class="muted">Bell pass rate</span><b id="bp">–</b></div>
+        <div class="metric"><span class="muted">Bell abort</span><b id="ba">–</b></div>
+      </div>
+      <div class="card"><div id="chart" style="height:360px"></div></div>
+      <div class="card"><details><summary>Raw API result</summary><pre id="raw"></pre></details></div>
+    </section>
+  </div>
+</main>
+<script>
+function val(id){ return Number(document.getElementById(id).value); }
+async function runScenario(){
+  const body = {
+    scenario: document.getElementById('scenario').value,
+    n_copies: val('n'), block_length: val('lambda'), blocks: val('blocks'),
+    noise_epsilon: val('noise'), threshold: val('threshold'), bell_tests: val('bell'), seed: val('seed')
+  };
+  const res = await fetch('/api/run', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const data = await res.json();
+  if(!res.ok){ document.getElementById('decision').textContent = data.detail || 'Error'; return; }
+  document.getElementById('decision').textContent = data.decision;
+  document.getElementById('runtime').textContent = `${data.runtime_ms} ms`;
+  document.getElementById('f').textContent = data.security.forging_fidelity_Fn.toFixed(6);
+  document.getElementById('q').textContent = data.security.forging_mismatch_q.toFixed(6);
+  document.getElementById('bound').textContent = data.security.model_forgery_bound.toExponential(3);
+  document.getElementById('tf').textContent = data.teleportation_fidelity.toFixed(6);
+  document.getElementById('bp').textContent = data.bell_witness.pass_rate.toFixed(4);
+  document.getElementById('ba').textContent = data.bell_witness.aborted ? 'YES' : 'NO';
+  document.getElementById('raw').textContent = JSON.stringify(data,null,2);
+  const blocks = data.blocks;
+  Plotly.newPlot('chart', [{x:blocks.map(b=>b.block), y:blocks.map(b=>b.mismatch_rate), mode:'lines+markers', name:'Mismatch rate'},
+                            {x:blocks.map(b=>b.block), y:blocks.map(()=>data.parameters.threshold), mode:'lines', name:'Threshold'}],
+                 {title:'Per-block verification statistics', paper_bgcolor:'#12182a', plot_bgcolor:'#12182a', font:{color:'#e8ecf4'}, margin:{t:50,l:50,r:20,b:45}, yaxis:{range:[0,1]}});
+}
+</script>
+</body>
+</html>
