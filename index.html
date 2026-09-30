@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="PauliGuard — interactive Quantum Digital Signature security laboratory." />
+  <title>PauliGuard — Quantum Signature Security Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    :root {
+      --bg: #f6f1e8;
+      --bg-soft: #fbf8f3;
+      --card: #fffdf9;
+      --card-2: #f8f3eb;
+      --border: #e6dccd;
+      --text: #27231f;
+      --muted: #746b61;
+      --orange: #e57b1f;
+      --orange-deep: #b95c0c;
+      --orange-soft: #fff0df;
+      --green: #2f7d4a;
+      --green-soft: #e9f5ed;
+      --red: #b34232;
+      --red-soft: #faece8;
+      --amber: #9b6a16;
+      --amber-soft: #fbf2db;
+      --shadow: 0 14px 40px rgba(82, 60, 36, .08);
+      --radius: 16px;
+      --radius-sm: 11px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 0% 0%, rgba(229, 123, 31, .07), transparent 30%),
+        radial-gradient(circle at 100% 0%, rgba(229, 123, 31, .05), transparent 24%),
+        var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    a { color: var(--orange-deep); }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(255, 253, 249, .94);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar-inner {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 13px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: var(--orange);
+      color: #fff;
+      font-weight: 900;
+      box-shadow: 0 7px 18px rgba(229, 123, 31, .22);
+    }
+    .brand-title { font-size: 16px; font-weight: 850; letter-spacing: -.02em; }
+    .brand-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .topbar-actions { display: flex; align-items: center; gap: 10px; }
+    .server-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .server-dot {
+      width: 8px; height: 8px; border-radius: 999px;
+      background: #c6bbaa;
+      box-shadow: 0 0 0 4px rgba(198, 187, 170, .18);
+    }
+    .server-dot.ok { background: var(--green); box-shadow: 0 0 0 4px rgba(47, 125, 74, .12); }
+
+    .page { max-width: 1480px; margin: 0 auto; padding: 22px 24px 54px; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(310px, .7fr);
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .hero-card, .panel, .kpi {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-card { padding: 28px; overflow: hidden; position: relative; }
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      right: -90px;
+      top: -110px;
+      border: 24px solid rgba(229, 123, 31, .06);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 850;
+      color: var(--orange-deep);
+      letter-spacing: .11em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    h1 { margin: 0; font-size: clamp(30px, 4vw, 46px); line-height: 1.03; letter-spacing: -.045em; }
+    .hero-copy { color: var(--muted); max-width: 900px; line-height: 1.7; margin: 13px 0 0; font-size: 14px; }
+
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 17px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 9px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg-soft);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .chip.orange { background: var(--orange-soft); border-color: #f1c18e; color: var(--orange-deep); }
+
+    .system-flow { margin-top: 22px; display: flex; align-items: stretch; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+    .flow-node {
+      min-width: 120px;
+      flex: 1 1 0;
+      padding: 12px 10px;
+      border-radius: 13px;
+      border: 1px solid var(--border);
+      background: var(--bg-soft);
+      position: relative;
+    }
+    .flow-node.active { border-color: #efbd86; background: var(--orange-soft); }
+    .flow-no { font-size: 10px; font-weight: 900; color: var(--orange-deep); }
+    .flow-title { margin-top: 5px; font-weight: 850; font-size: 12px; }
+    .flow-desc { margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+    .flow-arrow { align-self: center; color: #b8ac9e; font-size: 18px; flex: 0 0 auto; }
+
+    .hero-side { display: grid; gap: 12px; }
+    .mini-kpi { padding: 16px; }
+    .mini-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; color: var(--muted); }
+    .mini-value { margin-top: 7px; font-size: 21px; font-weight: 900; letter-spacing: -.025em; }
+    .mini-note { margin-top: 5px; font-size: 11px; color: var(--muted); line-height: 1.45; }
+
+    .tabs {
+      display: flex;
+      gap: 7px;
+      margin: 17px 0;
+      padding-bottom: 2px;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      padding: 10px 13px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { border-color: #d5c5b3; }
+    .tab-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); box-shadow: 0 5px 14px rgba(229,123,31,.18); }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    .layout-2 { display: grid; grid-template-columns: 370px minmax(0, 1fr); gap: 18px; }
+    .layout-3 { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+    .layout-4 { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+    .panel { padding: 18px; box-shadow: none; }
+    .panel + .panel { margin-top: 15px; }
+
+    .panel-head { display:flex; align-items:flex-start; justify-content:space-between; gap: 10px; margin-bottom: 15px; }
+    .panel-title { margin:0; font-size:16px; letter-spacing:-.015em; }
+    .panel-desc { margin:5px 0 0; font-size:11px; color:var(--muted); line-height:1.6; }
+
+    .section-title { font-size: 20px; margin:0; letter-spacing:-.02em; }
+    .section-copy { color:var(--muted); line-height:1.65; font-size:13px; margin:6px 0 0; }
+
+    .field { margin-bottom: 12px; }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    label { display:flex; justify-content:space-between; gap:8px; margin-bottom:6px; font-size:11px; color:#51493f; font-weight:800; }
+    .hint { color:#9a8d7f; font-weight:600; }
+    input, select {
+      width:100%;
+      padding:10px 11px;
+      border-radius:10px;
+      border:1px solid #dacdbd;
+      background:#fff;
+      color:var(--text);
+      outline:none;
+      transition:border-color .16s, box-shadow .16s;
+    }
+    input:focus, select:focus { border-color:#eda866; box-shadow:0 0 0 4px rgba(229,123,31,.10); }
+    input[type="range"] { padding:0; accent-color:var(--orange); }
+
+    .actions { display:flex; gap:9px; margin-top:14px; }
+    .btn {
+      padding:10px 13px;
+      border-radius:10px;
+      font-weight:850;
+      border:1px solid transparent;
+      transition:transform .14s, box-shadow .14s, background .14s;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background:var(--orange); color:#fff; flex:1; box-shadow:0 6px 15px rgba(229,123,31,.18); }
+    .btn-secondary { background:#fff; border-color:var(--border); color:#564d43; }
+    .btn-danger { background: var(--red-soft); border-color:#efc5bd; color:var(--red); }
+    .btn:disabled { opacity:.55; cursor:wait; transform:none; }
+
+    .callout {
+      padding:12px 13px;
+      border-radius:11px;
+      border:1px solid #efcfaa;
+      background:var(--orange-soft);
+      color:#76522d;
+      font-size:11px;
+      line-height:1.6;
+    }
+    .callout strong { color:#63401e; }
+
+    .status-card { padding:16px; border:1px solid var(--border); border-radius:13px; background:var(--bg-soft); }
+    .status-row { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+    .decision { margin-top:5px; font-size:26px; font-weight:950; letter-spacing:-.03em; }
+    .decision.accept { color:var(--green); }
+    .decision.reject { color:var(--red); }
+    .decision.warn { color:var(--amber); }
+    .decision.neutral { color:#514940; }
+    .reason { margin-top:4px; color:var(--muted); font-size:11px; line-height:1.55; }
+    .badge { padding:6px 9px; border-radius:999px; border:1px solid var(--border); color:var(--muted); background:#fff; font-size:10px; font-weight:850; white-space:nowrap; }
+
+    .kpi-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; margin-top:13px; }
+    .kpi { padding:13px; border-radius:12px; box-shadow:none; }
+    .kpi-label { color:var(--muted); font-size:10px; font-weight:800; }
+    .kpi-value { margin-top:6px; font-size:17px; font-weight:900; overflow-wrap:anywhere; }
+    .kpi-note { margin-top:4px; color:#9a8c7f; font-size:10px; line-height:1.35; }
+
+    .chart-card { padding: 3px 0 0; }
+    .chart { width:100%; height: 330px; }
+    .chart.tall { height:390px; }
+    .chart.small { height:250px; }
+
+    .metric-bars { display:grid; gap:11px; margin-top:10px; }
+    .bar-row { display:grid; grid-template-columns:140px minmax(0,1fr) 72px; gap:10px; align-items:center; }
+    .bar-label { font-size:11px; color:#5d544a; font-weight:750; }
+    .bar { height:9px; border-radius:999px; background:#eee6db; overflow:hidden; }
+    .bar > span { display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,#f4ac67,var(--orange)); transition:width .5s ease; }
+    .bar-value { text-align:right; font-size:11px; font-weight:850; color:#5d544a; }
+
+    .table-wrap { overflow:auto; border:1px solid var(--border); border-radius:11px; }
+    table { width:100%; border-collapse:collapse; min-width:620px; }
+    th, td { padding:10px 11px; border-bottom:1px solid #eee6dc; text-align:left; font-size:11px; }
+    th { background:var(--card-2); color:#62584e; font-weight:850; position:sticky; top:0; }
+    td { color:#4c443b; }
+    tr:last-child td { border-bottom:0; }
+
+    .result-chip { display:inline-flex; align-items:center; gap:5px; padding:5px 8px; border-radius:999px; font-size:10px; font-weight:850; }
+    .result-chip.good { background:var(--green-soft); color:var(--green); }
+    .result-chip.bad { background:var(--red-soft); color:var(--red); }
+    .result-chip.warn { background:var(--amber-soft); color:var(--amber); }
+
+    .flowchart-large {
+      display:grid;
+      grid-template-columns:repeat(5, minmax(0,1fr));
+      gap:11px;
+      align-items:stretch;
+    }
+    .fc-node { padding:16px; background:var(--bg-soft); border:1px solid var(--border); border-radius:14px; position:relative; min-height:120px; }
+    .fc-node.orange { background:var(--orange-soft); border-color:#efc491; }
+    .fc-kicker { font-size:10px; font-weight:900; color:var(--orange-deep); letter-spacing:.08em; text-transform:uppercase; }
+    .fc-title { margin-top:7px; font-size:14px; font-weight:900; }
+    .fc-copy { margin-top:6px; font-size:11px; color:var(--muted); line-height:1.55; }
+    .fc-arrow { display:none; }
+
+    .trace { display:grid; gap:7px; }
+    .trace-line { display:grid; grid-template-columns:27px 1fr; gap:9px; align-items:start; }
+    .trace-no { width:27px; height:27px; border-radius:50%; display:grid; place-items:center; background:var(--orange-soft); border:1px solid #f0c591; color:var(--orange-deep); font-size:10px; font-weight:900; }
+    .trace-text { padding-top:4px; font-size:11px; line-height:1.55; color:#5b5248; }
+
+    .empty { color:#9b8f83; text-align:center; padding:26px 8px; font-size:11px; }
+    .hidden { display:none !important; }
+    .footer-note { color:#8a7d70; font-size:10px; line-height:1.6; margin-top:12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    .overview-hero { padding:20px; }
+    .overview-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .overview-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .overview-card { padding:15px; background:var(--card); border:1px solid var(--border); border-radius:13px; }
+    .overview-card h3 { margin:0; font-size:13px; }
+    .overview-card p { margin:6px 0 0; color:var(--muted); font-size:11px; line-height:1.55; }
+    .icon-box { width:32px; height:32px; border-radius:9px; display:grid; place-items:center; background:var(--orange-soft); color:var(--orange-deep); font-weight:900; margin-bottom:10px; }
+
+    .legend { display:flex; flex-wrap:wrap; gap:9px; margin-top:8px; }
+    .legend span { font-size:10px; color:var(--muted); display:inline-flex; align-items:center; gap:5px; }
+    .legend i { width:9px; height:9px; border-radius:2px; display:inline-block; }
+
+    .quick-tests { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; }
+    .test-card { padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--bg-soft); cursor:pointer; transition:transform .13s, border-color .13s, background .13s; }
+    .test-card:hover { transform:translateY(-2px); border-color:#efbd86; background:var(--orange-soft); }
+    .test-card strong { display:block; font-size:11px; }
+    .test-card span { display:block; margin-top:5px; color:var(--muted); font-size:10px; line-height:1.4; }
+
+    .formula-controls { display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:end; }
+
+    @media (max-width: 1180px) {
+      .hero, .layout-2 { grid-template-columns:1fr; }
+      .kpi-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .overview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .quick-tests { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .flowchart-large { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    }
+
+    @media (max-width: 760px) {
+      .page, .topbar-inner { padding-left:14px; padding-right:14px; }
+      .hero-card { padding:21px; }
+      .kpi-grid, .layout-4, .overview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .layout-3, .quick-tests { grid-template-columns:1fr 1fr; }
+      .field-row { grid-template-columns:1fr; }
+      .flowchart-large { grid-template-columns:1fr 1fr; }
+      .bar-row { grid-template-columns:105px minmax(0,1fr) 62px; }
+    }
+
+    @media (max-width: 480px) {
+      .topbar-actions { gap:5px; }
+      .server-pill { display:none; }
+      .kpi-grid, .layout-3, .layout-4, .overview-grid, .quick-tests, .flowchart-large { grid-template-columns:1fr; }
+      .status-row { align-items:flex-start; flex-direction:column; }
+      .system-flow { flex-direction:column; }
+      .flow-arrow { transform:rotate(90deg); align-self:center; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark">P</div>
+        <div>
+          <div class="brand-title">PauliGuard</div>
+          <div class="brand-sub">Quantum Digital Signature Security Dashboard · SIH26141</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="server-pill"><span id="statusDot" class="server-dot"></span><span id="statusText">Checking server…</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <div class="hero-card">
+        <div class="eyebrow">Non-ML · Protocol Simulation · Explainable Security</div>
+        <h1>See the protocol.<br />See the evidence.</h1>
+        <p class="hero-copy">PauliGuard is a browser-based laboratory for a single-qubit Pauli-eigenstate QDS workflow. Run a clean signature or inject an attack, then inspect the quantum state flow, measurements, mismatches and final decision.</p>
+        <div class="hero-meta">
+          <span class="chip orange">FastAPI backend</span>
+          <span class="chip">Local quantum simulation</span>
+          <span class="chip">Statistical verification</span>
+          <span class="chip">No AI / ML</span>
+        </div>
+        <div class="system-flow" aria-label="QDS system flow">
+          <div class="flow-node active"><div class="flow-no">01</div><div class="flow-title">Key Generation</div><div class="flow-desc">Pauli basis + eigenvalue choices</div></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node"><div class="flow-no">02</div><div class="flow-title">Teleportation</div><div class="flow-desc">Bell pair + Pauli correction</div></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node"><div class="flow-no">03</div><div class="flow-title">Signing</div><div class="flow-desc">Message selects signature states</div></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node"><div class="flow-no">04</div><div class="flow-title">Measurement</div><div class="flow-desc">Projective measurement outcomes</div></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node"><div class="flow-no">05</div><div class="flow-title">Decision</div><div class="flow-desc">Mismatch statistics → verdict</div></div>
+        </div>
+      </div>
+
+      <div class="hero-side">
+        <div class="kpi mini-kpi"><div class="mini-label">Current decision</div><div id="heroDecision" class="mini-value">Ready</div><div id="heroDecisionNote" class="mini-note">Run a QDS experiment or threat test.</div></div>
+        <div class="kpi mini-kpi"><div class="mini-label">Latest mismatch rate</div><div id="heroMismatch" class="mini-value">—</div><div class="mini-note">Observed across the latest verification run.</div></div>
+        <div class="kpi mini-kpi"><div class="mini-label">Teleportation fidelity</div><div id="heroFidelity" class="mini-value">—</div><div class="mini-note">State-recovery check in the simulator.</div></div>
+        <div class="kpi mini-kpi"><div class="mini-label">Runs this session</div><div id="heroRuns" class="mini-value">0</div><div class="mini-note">Stored locally in this browser for comparison.</div></div>
+      </div>
+    </section>
+
+    <nav class="tabs" aria-label="PauliGuard sections">
+      <button class="tab-btn active" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="qds">QDS Protocol Lab</button>
+      <button class="tab-btn" data-tab="sandbox">Threat Sandbox</button>
+      <button class="tab-btn" data-tab="formula">Security Model</button>
+      <button class="tab-btn" data-tab="guide">How It Works</button>
+    </nav>
+
+    <section id="tab-overview" class="tab-panel active">
+      <div class="panel overview-hero">
+        <div class="panel-head">
+          <div>
+            <h2 class="section-title">Security control center</h2>
+            <p class="section-copy">Use the overview to understand what the system is checking before opening the detailed experiment panels.</p>
+          </div>
+          <div class="overview-actions">
+            <button class="btn btn-secondary" onclick="goTab('qds')">Open QDS Lab</button>
+            <button class="btn btn-primary" style="flex:0 0 auto" onclick="goTab('sandbox')">Open Threat Sandbox</button>
+          </div>
+        </div>
+        <div class="layout-4" style="margin-top:15px">
+          <div class="overview-card"><div class="icon-box">Q</div><h3>Quantum layer</h3><p>Generates Pauli eigenstates and simulates teleportation and projective measurement.</p></div>
+          <div class="overview-card"><div class="icon-box">Σ</div><h3>Statistical layer</h3><p>Compares observed mismatch behavior with legitimate and attack hypotheses.</p></div>
+          <div class="overview-card"><div class="icon-box">L</div><h3>Ledger layer</h3><p>Tracks authorization, freshness and exposure-related state where applicable.</p></div>
+          <div class="overview-card"><div class="icon-box">↗</div><h3>Evidence layer</h3><p>Shows the values that caused the final verdict instead of hiding them behind one score.</p></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div><h2 class="panel-title">Live experiment history</h2><p class="panel-desc">Results are stored only in this browser so you can compare multiple runs during a demonstration.</p></div><button class="btn btn-secondary" onclick="clearHistory()">Clear history</button></div>
+        <div id="historyEmpty" class="empty">Run an experiment to populate the history charts.</div>
+        <div id="historyContent" class="hidden">
+          <div class="layout-3">
+            <div class="panel" style="background:var(--bg-soft)"><div class="panel-head"><div><h3 class="panel-title">Decision timeline</h3><p class="panel-desc">Latest results by run.</p></div></div><div id="historyDecisionChart" class="chart small"></div></div>
+            <div class="panel" style="background:var(--bg-soft)"><div class="panel-head"><div><h3 class="panel-title">Mismatch trend</h3><p class="panel-desc">Observed rate across recent runs.</p></div></div><div id="historyMismatchChart" class="chart small"></div></div>
+            <div class="panel" style="background:var(--bg-soft)"><div class="panel-head"><div><h3 class="panel-title">Detection summary</h3><p class="panel-desc">Count of outcomes in this browser session.</p></div></div><div id="historySummaryChart" class="chart small"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div><h2 class="panel-title">Protocol architecture</h2><p class="panel-desc">The dashboard keeps quantum verification, statistical evidence, and classical session controls visibly separate.</p></div></div>
+        <div class="flowchart-large">
+          <div class="fc-node orange"><div class="fc-kicker">Layer 1</div><div class="fc-title">Quantum State Preparation</div><div class="fc-copy">Generate Pauli eigenstates that represent the public quantum key.</div></div>
+          <div class="fc-node"><div class="fc-kicker">Layer 2</div><div class="fc-title">Teleportation</div><div class="fc-copy">Transport the simulated public states using Bell measurement and Pauli correction.</div></div>
+          <div class="fc-node"><div class="fc-kicker">Layer 3</div><div class="fc-title">Signature & Measurement</div><div class="fc-copy">Use the signed basis/eigenvalue and measure the selected state.</div></div>
+          <div class="fc-node"><div class="fc-kicker">Layer 4</div><div class="fc-title">Statistical Analysis</div><div class="fc-copy">Count mismatches and compare them with the configured verification rule.</div></div>
+          <div class="fc-node orange"><div class="fc-kicker">Layer 5</div><div class="fc-title">Security Verdict</div><div class="fc-copy">Return an explainable decision with supporting evidence.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-qds" class="tab-panel">
+      <div class="layout-2">
+        <div>
+          <div class="panel">
+            <div class="panel-head"><div><h2 class="panel-title">QDS Protocol Lab</h2><p class="panel-desc">Run the protocol from key generation to projective measurement. The selected attack changes the protocol inputs, not just a final label.</p></div></div>
+
+            <div class="field"><label for="qds_message">Message bits <span class="hint">1–64 bits</span></label><input id="qds_message" value="10110011" maxlength="64" inputmode="numeric" /></div>
+            <div class="field-row">
+              <div class="field"><label for="qds_lambda">Security parameter λ <span class="hint">checks / bit</span></label><input id="qds_lambda" type="number" value="32" min="8" max="256" /></div>
+              <div class="field"><label for="qds_threshold">Mismatch threshold s</label><input id="qds_threshold" type="number" value="0.20" min="0" max="1" step="0.01" /></div>
+            </div>
+            <div class="field-row">
+              <div class="field"><label for="qds_noise">Readout noise ε</label><input id="qds_noise" type="number" value="0.02" min="0" max="1" step="0.01" /></div>
+              <div class="field"><label for="qds_seed">Random seed</label><input id="qds_seed" type="number" value="42" min="0" /></div>
+            </div>
+            <div class="field"><label for="qds_attack">Attack</label><select id="qds_attack"><option value="none">No attack</option><option value="forge">Forgery — change one message bit</option><option value="impersonate">Impersonation — unrelated signing key</option><option value="channel_intercept_resend">Channel manipulation — intercept / resend</option></select></div>
+
+            <div class="callout"><strong>What changes?</strong> The backend generates the quantum public states, teleports them, creates the signature, measures the selected states, and counts mismatches. Attacks modify the protocol path before verification.</div>
+
+            <div class="actions">
+              <button id="qdsRunBtn" class="btn btn-primary" onclick="runQDS()">Run QDS Protocol</button>
+              <button class="btn btn-secondary" onclick="resetQDS()">Reset</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><div><h2 class="panel-title">Quick comparison</h2><p class="panel-desc">Load a known scenario without changing the rest of your form.</p></div></div>
+            <div class="quick-tests">
+              <div class="test-card" onclick="setQDSPreset('none')"><strong>Legitimate</strong><span>Clean protocol baseline.</span></div>
+              <div class="test-card" onclick="setQDSPreset('forge')"><strong>Forgery</strong><span>Reuse the original signature on a changed bit.</span></div>
+              <div class="test-card" onclick="setQDSPreset('impersonate')"><strong>Impersonation</strong><span>Different signer, same message.</span></div>
+              <div class="test-card" onclick="setQDSPreset('channel_intercept_resend')"><strong>Channel attack</strong><span>Replace distributed public states.</span></div>
+              <div class="test-card" onclick="setQDSPreset('none', true)"><strong>Low noise</strong><span>Clean run with ε = 0.00.</span></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><div><h2 class="panel-title">Execution trace</h2><p class="panel-desc">A plain-language record for the SIH demo.</p></div></div>
+            <div id="qdsTrace" class="trace"><div class="empty">Run an experiment to see each protocol stage.</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="panel">
+            <div class="status-card">
+              <div class="status-row">
+                <div><div class="mini-label">Protocol decision</div><div id="qdsDecision" class="decision neutral">READY</div><div id="qdsReason" class="reason">No QDS protocol experiment has been executed.</div></div>
+                <div id="qdsAttackBadge" class="badge">NO RUN</div>
+              </div>
+            </div>
+            <div class="kpi-grid">
+              <div class="kpi"><div class="kpi-label">Message length l</div><div id="m_l" class="kpi-value">—</div></div>
+              <div class="kpi"><div class="kpi-label">Public-key qubits</div><div id="m_qubits" class="kpi-value">—</div></div>
+              <div class="kpi"><div class="kpi-label">Avg. fidelity</div><div id="m_fidelity" class="kpi-value">—</div></div>
+              <div class="kpi"><div class="kpi-label">Measurements</div><div id="m_meas" class="kpi-value">—</div></div>
+              <div class="kpi"><div class="kpi-label">Mismatches</div><div id="m_mm" class="kpi-value">—</div></div>
+              <div class="kpi"><div class="kpi-label">Mismatch rate</div><div id="m_rate" class="kpi-value">—</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><div><h2 class="panel-title">Message integrity</h2><p class="panel-desc">See whether the message being verified differs from the signed message.</p></div></div>
+            <div class="layout-3">
+              <div class="overview-card"><div class="mini-label">Original</div><div id="msgOriginal" class="mini-value mono" style="font-size:17px">—</div></div>
+              <div class="overview-card"><div class="mini-label">Verified</div><div id="msgVerified" class="mini-value mono" style="font-size:17px">—</div></div>
+              <div class="overview-card"><div class="mini-label">Different bits</div><div id="msgDiff" class="mini-value">—</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><div><h2 class="panel-title">Per-block measurement evidence</h2><p class="panel-desc">Each message bit is checked independently.</p></div></div>
+            <div id="qdsChart" class="chart"></div>
+            <div class="legend"><span><i style="background:var(--orange)"></i>Observed mismatch</span><span><i style="background:#ac9f91"></i>Threshold</span></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><div><h2 class="panel-title">Verification table</h2><p class="panel-desc">The numbers behind the chart.</p></div></div>
+            <div class="table-wrap"><table><thead><tr><th>Block</th><th>Message bit</th><th>Measurements</th><th>Mismatches</th><th>Mismatch rate</th><th>SPRT</th><th>Decision</th></tr></thead><tbody id="qdsTable"><tr><td colspan="7" class="empty">No results yet.</td></tr></tbody></table></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-sandbox" class="tab-panel">
+      <div class="layout-2">
+        <div>
+          <div class="panel">
+            <div class="panel-head"><div><h2 class="panel-title">Threat Sandbox</h2><p class="panel-desc">Use the original high-level security engine to compare attack hypotheses, exposure and Bell-witness behavior.</p></div></div>
+            <div class="field"><label for="scenario">Scenario</label><select id="scenario"><option value="legitimate">Legitimate</option><option value="forgery_n0">Forgery (n=0)</option><option value="forgery_exposed">Forgery (exposed keys)</option><option value="impersonation">Impersonation</option><option value="replay">Replay</option><option value="unauthorized">Unauthorized verification</option><option value="channel_intercept_resend">Channel manipulation</option></select></div>
+            <div class="field-row"><div class="field"><label for="n">Exposed copies n</label><input id="n" type="number" value="0" min="0" max="20" /></div><div class="field"><label for="lambda">Block length λ</label><input id="lambda" type="number" value="100" min="8" max="5000" /></div></div>
+            <div class="field-row"><div class="field"><label for="blocks">Blocks l</label><input id="blocks" type="number" value="8" min="1" max="256" /></div><div class="field"><label for="noise">Noise ε</label><input id="noise" type="number" value="0.02" min="0" max="1" step="0.01" /></div></div>
+            <div class="field-row"><div class="field"><label for="threshold">Mismatch threshold s</label><input id="threshold" type="number" value="0.20" min="0" max="1" step="0.01" /></div><div class="field"><label for="bell">Bell tests</label><input id="bell" type="number" value="200" min="20" max="10000" /></div></div>
+            <div class="field"><label for="seed">Random seed</label><input id="seed" type="number" value="42" min="0" /></div>
+            <div class="actions"><button id="scenarioBtn" class="btn btn-primary" onclick="runScenario()">Run Security Analysis</button><button class="btn btn-secondary" onclick="applyPreset('baseline')">Baseline</button></div>
+          </div>
+
+          <div class="panel">
+            <div class="callout"><strong>Read the result in layers:</strong> Bell witness = channel health. Block mismatch / SPRT = signature evidence. Replay and authorization = classical controls.</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="panel"><div class="status-card"><div class="status-row"><div><div class="mini-label">Security decision</div><div id="decision" class="decision neutral">READY</div><div id="runtime" class="reason">No scenario executed.</div></div><div id="scenarioBadge" class="badge">NO RUN</div></div></div>
+            <div class="kpi-grid">
+              <div class="kpi"><div class="kpi-label">F(n)</div><div id="f" class="kpi-value">—</div><div class="kpi-note">Modeled forgery fidelity</div></div>
+              <div class="kpi"><div class="kpi-label">q(n)</div><div id="q" class="kpi-value">—</div><div class="kpi-note">Modeled mismatch under forgery</div></div>
+              <div class="kpi"><div class="kpi-label">F(n)^λ</div><div id="bound" class="kpi-value">—</div><div class="kpi-note">Modeled bound</div></div>
+              <div class="kpi"><div class="kpi-label">Teleport fidelity</div><div id="tf" class="kpi-value">—</div></div>
+              <div class="kpi"><div class="kpi-label">Bell pass rate</div><div id="bp" class="kpi-value">—</div></div>
+              <div class="kpi"><div class="kpi-label">Bell abort</div><div id="ba" class="kpi-value">—</div></div>
+            </div>
+          </div>
+
+          <div class="layout-2" style="grid-template-columns:1fr 1fr">
+            <div class="panel"><div class="panel-head"><div><h2 class="panel-title">Block evidence</h2><p class="panel-desc">Observed mismatch rate vs configured threshold.</p></div></div><div id="chart" class="chart"></div></div>
+            <div class="panel"><div class="panel-head"><div><h2 class="panel-title">Bell witness</h2><p class="panel-desc">Channel-level pass/fail sample.</p></div></div><div id="bellChart" class="chart"></div></div>
+          </div>
+
+          <div class="panel"><div class="panel-head"><div><h2 class="panel-title">Decision explanation</h2><p class="panel-desc">Interpret the result without opening the raw JSON.</p></div></div><div id="scenarioExplanation" class="layout-3"><div class="empty">Run a scenario to populate this section.</div></div></div>
+          <div class="panel"><details><summary style="cursor:pointer;color:#5d544a;font-weight:800">Raw API result</summary><pre id="raw" style="margin-top:11px;max-height:420px;overflow:auto;background:#f4ede2;border:1px solid var(--border);border-radius:10px;padding:12px;font:11px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">No result.</pre></details></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-formula" class="tab-panel">
+      <div class="layout-2">
+        <div>
+          <div class="panel">
+            <div class="panel-head"><div><h2 class="panel-title">Exposure explorer</h2><p class="panel-desc">Change the number of exposed public-key copies and inspect the modeled quantities returned by the API.</p></div></div>
+            <div class="formula-controls"><div class="field" style="margin:0"><label for="formulaN">Exposed copies n</label><input id="formulaN" type="number" value="0" min="0" max="20" /></div><button class="btn btn-primary" style="flex:0 0 auto" onclick="loadFormula()">Calculate</button></div>
+          </div>
+          <div class="panel"><div class="kpi-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="kpi"><div class="kpi-label">n</div><div id="formula_n" class="kpi-value">—</div></div><div class="kpi"><div class="kpi-label">F(n)</div><div id="formula_f" class="kpi-value">—</div></div><div class="kpi"><div class="kpi-label">q(n)</div><div id="formula_q" class="kpi-value">—</div></div></div></div>
+          <div class="panel"><div class="panel-head"><div><h2 class="panel-title">How exposure propagates</h2><p class="panel-desc">The model turns exposure into an adversary-side quantity that the verifier can inspect.</p></div></div><div class="metric-bars"><div class="bar-row"><div class="bar-label">Exposure count</div><div class="bar"><span id="barN"></span></div><div id="barNVal" class="bar-value">0</div></div><div class="bar-row"><div class="bar-label">F(n)</div><div class="bar"><span id="barF"></span></div><div id="barFVal" class="bar-value">—</div></div><div class="bar-row"><div class="bar-label">q(n)</div><div class="bar"><span id="barQ"></span></div><div id="barQVal" class="bar-value">—</div></div></div></div>
+        </div>
+        <div>
+          <div class="panel"><div id="formulaChart" class="chart tall"></div></div>
+          <div class="panel"><div class="panel-head"><div><h2 class="panel-title">Security interpretation</h2><p class="panel-desc">Use this graph to explain why public-key exposure is a security parameter.</p></div></div><div class="flowchart-large" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div class="fc-node orange"><div class="fc-kicker">1</div><div class="fc-title">Exposure</div><div class="fc-copy">More copies are available to an adversary.</div></div><div class="fc-node"><div class="fc-kicker">2</div><div class="fc-title">State estimation</div><div class="fc-copy">The model maps n to F(n).</div></div><div class="fc-node"><div class="fc-kicker">3</div><div class="fc-title">Mismatch q(n)</div><div class="fc-copy">q(n) = 1 − F(n).</div></div><div class="fc-node orange"><div class="fc-kicker">4</div><div class="fc-title">Verification</div><div class="fc-copy">Exposure-aware evidence can be shown to the operator.</div></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-guide" class="tab-panel">
+      <div class="layout-3">
+        <div class="panel"><div class="eyebrow">INPUT</div><h2 class="panel-title">What you enter</h2><p class="panel-desc">Message bits, security parameter λ, noise ε, mismatch threshold s, random seed, and an optional attack scenario.</p><div class="hero-meta" style="margin-top:12px"><span class="chip">Message</span><span class="chip">λ</span><span class="chip">ε</span><span class="chip">s</span><span class="chip">Seed</span><span class="chip">Attack</span></div></div>
+        <div class="panel"><div class="eyebrow">PROCESS</div><h2 class="panel-title">What the backend does</h2><p class="panel-desc">Generate Pauli states → teleport public states → create a signature → select states using the message → measure → count mismatches → decide.</p></div>
+        <div class="panel"><div class="eyebrow">OUTPUT</div><h2 class="panel-title">What you should read</h2><p class="panel-desc">Decision, mismatch evidence, teleportation fidelity, block-level results, exposure quantities, and Bell-witness behavior.</p></div>
+      </div>
+
+      <div class="panel" style="margin-top:15px"><div class="panel-head"><div><h2 class="panel-title">Decision dictionary</h2><p class="panel-desc">Use these meanings when presenting the dashboard.</p></div></div>
+        <div class="layout-3">
+          <div class="overview-card"><span class="result-chip good">ACCEPT</span><p>The measurements are consistent with the configured legitimate model and verification threshold.</p></div>
+          <div class="overview-card"><span class="result-chip bad">REJECT_FORGERY</span><p>At least one message block produces evidence inconsistent with the legitimate signature expectation.</p></div>
+          <div class="overview-card"><span class="result-chip bad">REJECT_IMPERSONATION</span><p>The signature was generated from unrelated signing information and does not verify against the legitimate public key.</p></div>
+          <div class="overview-card"><span class="result-chip warn">REPLAY</span><p>The signature can be cryptographically valid while the session itself is stale or already consumed.</p></div>
+          <div class="overview-card"><span class="result-chip warn">UNAUTHORIZED</span><p>The requested verifier does not match the registered verifier for the key.</p></div>
+          <div class="overview-card"><span class="result-chip bad">ABORT / CHANNEL</span><p>The channel evidence is abnormal enough that distribution should not proceed in the modeled scenario.</p></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:15px"><div class="panel-head"><div><h2 class="panel-title">What the simulator does not prove</h2><p class="panel-desc">This should be stated clearly in the SIH presentation.</p></div></div><div class="callout">The software is a protocol-level simulator. It demonstrates mathematical state evolution and statistical behavior; it does not by itself prove information-theoretic security or certify the behavior of a physical quantum channel.</div></div>
+
+      <div class="panel" style="margin-top:15px"><div class="panel-head"><div><h2 class="panel-title">Recommended demo sequence</h2><p class="panel-desc">A clear six-step story for the judges.</p></div></div><div class="flowchart-large"><div class="fc-node orange"><div class="fc-kicker">01</div><div class="fc-title">Legitimate</div><div class="fc-copy">Show an accepted signature and clean mismatch chart.</div></div><div class="fc-node"><div class="fc-kicker">02</div><div class="fc-title">Forgery</div><div class="fc-copy">Change one message bit and reuse the signature.</div></div><div class="fc-node"><div class="fc-kicker">03</div><div class="fc-title">Impersonation</div><div class="fc-copy">Use an unrelated signer key.</div></div><div class="fc-node"><div class="fc-kicker">04</div><div class="fc-title">Channel attack</div><div class="fc-copy">Replace distributed states and inspect Bell evidence.</div></div><div class="fc-node orange"><div class="fc-kicker">05</div><div class="fc-title">Exposure</div><div class="fc-copy">Change n and show the modeled security curve.</div></div></div></div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const pct = (x, digits = 2) => Number.isFinite(Number(x)) ? `${(Number(x) * 100).toFixed(digits)}%` : '—';
+    const num = (x, digits = 6) => Number.isFinite(Number(x)) ? Number(x).toFixed(digits) : '—';
+    const safeText = (x) => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    const historyKey = 'pauliguard_ui_history_v2';
+
+    function getHistory() { try { return JSON.parse(localStorage.getItem(historyKey) || '[]'); } catch { return []; } }
+    function setHistory(items) { localStorage.setItem(historyKey, JSON.stringify(items.slice(-30))); }
+
+    const plotBase = {
+      paper_bgcolor:'rgba(0,0,0,0)',
+      plot_bgcolor:'rgba(0,0,0,0)',
+      font:{color:'#5f564d',size:11},
+      margin:{t:42,l:48,r:18,b:42},
+      xaxis:{gridcolor:'#eadfd2', zeroline:false, linecolor:'#dfd4c7'},
+      yaxis:{gridcolor:'#eadfd2', zeroline:false, linecolor:'#dfd4c7'},
+      hoverlabel:{bgcolor:'#fffdf9', font:{color:'#332c26'}}
+    };
+    const plotConfig = {responsive:true, displaylogo:false, displayModeBar:false};
+
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => goTab(btn.dataset.tab)));
+    function goTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+      window.scrollTo({top: 0, behavior:'smooth'});
+    }
+
+    function decisionClass(decision) {
+      const d = String(decision || '').toUpperCase();
+      if (d === 'ACCEPT') return 'accept';
+      if (d.includes('REJECT') || d.includes('FORGERY') || d.includes('IMPERSONATION') || d.includes('ABORT')) return 'reject';
+      if (d.includes('REPLAY') || d.includes('UNAUTHORIZED') || d.includes('SUSPICIOUS')) return 'warn';
+      return 'neutral';
+    }
+
+    function setBusy(id, busy, label, restore) {
+      const b = $(id); if (!b) return;
+      b.disabled = busy; b.textContent = busy ? label : restore;
+    }
+
+    function addHistory(entry) {
+      const items = getHistory();
+      items.push({ ...entry, ts: new Date().toISOString() });
+      setHistory(items);
+      renderHistory();
+      $('heroRuns').textContent = items.length;
+    }
+
+    function clearHistory() {
+      localStorage.removeItem(historyKey);
+      renderHistory();
+      $('heroRuns').textContent = '0';
+    }
+
+    function colorForDecision(d) {
+      const c = decisionClass(d);
+      return c === 'accept' ? '#2f7d4a' : c === 'reject' ? '#b34232' : c === 'warn' ? '#9b6a16' : '#7a6e63';
+    }
+
+    function renderHistory() {
+      const items = getHistory();
+      $('heroRuns').textContent = items.length;
+      $('historyEmpty').classList.toggle('hidden', items.length > 0);
+      $('historyContent').classList.toggle('hidden', items.length === 0);
+      if (!items.length) return;
+
+      const recent = items.slice(-15);
+      const labels = recent.map((_, i) => i + 1);
+      Plotly.newPlot('historyDecisionChart', [{
+        x: labels,
+        y: recent.map(r => r.decision === 'ACCEPT' ? 1 : r.decision.includes('REJECT') || r.decision.includes('ABORT') ? 0 : .5),
+        mode:'markers+lines',
+        text: recent.map(r => r.decision),
+        hovertemplate:'Run %{x}<br>%{text}<extra></extra>',
+        marker:{size:9, color:recent.map(r=>colorForDecision(r.decision))}
+      }], {...plotBase, title:{text:'Decision timeline',font:{size:13,color:'#453d35'}}, xaxis:{...plotBase.xaxis,title:'Run'}, yaxis:{...plotBase.yaxis,range:[-0.05,1.05],tickvals:[0,.5,1],ticktext:['Reject / Abort','Control','Accept']}}, plotConfig);
+
+      Plotly.newPlot('historyMismatchChart', [{
+        x: labels,
+        y: recent.map(r => Number(r.mismatchRate || 0)),
+        mode:'lines+markers',
+        line:{color:'#e57b1f',width:3}, marker:{color:'#e57b1f',size:7},
+        hovertemplate:'Run %{x}<br>Mismatch %{y:.2%}<extra></extra>'
+      }], {...plotBase, title:{text:'Mismatch trend',font:{size:13,color:'#453d35'}}, xaxis:{...plotBase.xaxis,title:'Run'}, yaxis:{...plotBase.yaxis,title:'Rate',range:[0,1],tickformat:'.0%'}}, plotConfig);
+
+      const counts = {};
+      recent.forEach(r => counts[r.decision] = (counts[r.decision] || 0) + 1);
+      Plotly.newPlot('historySummaryChart', [{
+        x:Object.keys(counts), y:Object.values(counts), type:'bar', marker:{color:'#e57b1f'}, hovertemplate:'%{x}: %{y}<extra></extra>'
+      }], {...plotBase, title:{text:'Outcome count',font:{size:13,color:'#453d35'}}, xaxis:{...plotBase.xaxis,tickangle:-25}, yaxis:{...plotBase.yaxis,title:'Runs',dtick:1}}, plotConfig);
+    }
+
+    async function checkHealth() {
+      try {
+        const r = await fetch('/health');
+        if (!r.ok) throw new Error();
+        $('statusDot').classList.add('ok'); $('statusText').textContent = 'Server online';
+      } catch {
+        $('statusDot').classList.remove('ok'); $('statusText').textContent = 'Server unavailable';
+      }
+    }
+
+    function updateHero(decision, mismatch, fidelity, note) {
+      $('heroDecision').textContent = String(decision || 'Ready').replaceAll('_',' ');
+      $('heroDecision').style.color = colorForDecision(decision || 'READY');
+      $('heroDecisionNote').textContent = note || 'Latest experiment result.';
+      $('heroMismatch').textContent = Number.isFinite(Number(mismatch)) ? pct(mismatch) : '—';
+      $('heroFidelity').textContent = Number.isFinite(Number(fidelity)) ? num(fidelity, 6) : '—';
+    }
+
+    async function runQDS() {
+      const message = $('qds_message').value.trim();
+      if (!/^[01]+$/.test(message)) return showQdsError('Message bits must contain only 0 and 1.');
+      const body = {
+        message_bits: message,
+        security_parameter: Number($('qds_lambda').value),
+        noise_epsilon: Number($('qds_noise').value),
+        threshold: Number($('qds_threshold').value),
+        attack: $('qds_attack').value,
+        seed: Number($('qds_seed').value)
+      };
+      setBusy('qdsRunBtn', true, 'Running…', 'Run QDS Protocol');
+      try {
+        const res = await fetch('/api/qds/demo', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        const data = await res.json(); if (!res.ok) throw new Error(data.detail || 'QDS request failed');
+        renderQDS(data);
+        addHistory({source:'QDS', decision:data.decision, mismatchRate:data.verification?.mismatch_rate, fidelity:data.teleportation?.average_fidelity, scenario:data.attack});
+      } catch (e) { showQdsError(e.message); }
+      finally { setBusy('qdsRunBtn', false, 'Running…', 'Run QDS Protocol'); }
+    }
+
+    function showQdsError(msg) {
+      $('qdsDecision').className = 'decision reject'; $('qdsDecision').textContent = 'ERROR'; $('qdsReason').textContent = msg; $('qdsAttackBadge').textContent = 'REQUEST FAILED';
+      updateHero('ERROR', NaN, NaN, msg);
+    }
+
+    function renderQDS(data) {
+      const decision = data.decision || 'UNKNOWN';
+      $('qdsDecision').className = 'decision ' + decisionClass(decision);
+      $('qdsDecision').textContent = decision.replaceAll('_',' ');
+      $('qdsReason').textContent = data.attack_description || 'Protocol completed.';
+      $('qdsAttackBadge').textContent = (data.attack || 'none').replaceAll('_',' ').toUpperCase();
+
+      $('m_l').textContent = data.key_generation?.message_length_l ?? '—';
+      $('m_qubits').textContent = data.key_generation?.public_qubits ?? '—';
+      $('m_fidelity').textContent = num(data.teleportation?.average_fidelity, 6);
+      $('m_meas').textContent = data.verification?.total_measurements ?? '—';
+      $('m_mm').textContent = data.verification?.total_mismatches ?? '—';
+      $('m_rate').textContent = pct(data.verification?.mismatch_rate, 2);
+
+      const original = data.message?.original_bits || '', verified = data.message?.verified_bits || '';
+      $('msgOriginal').textContent = original || '—'; $('msgVerified').textContent = verified || '—';
+      const diff = Math.max(original.length, verified.length) ? Array.from({length:Math.max(original.length,verified.length)}).filter((_,i)=>original[i] !== verified[i]).length : NaN;
+      $('msgDiff').textContent = Number.isFinite(diff) ? `${diff}` : '—';
+
+      const blocks = data.verification?.blocks || [];
+      $('qdsTable').innerHTML = blocks.length ? blocks.map(b => `<tr><td>${b.block}</td><td class="mono">${b.message_bit}</td><td>${b.measurements}</td><td>${b.mismatches}</td><td>${pct(b.mismatch_rate)}</td><td><span class="result-chip ${b.sprt === 'ATTACK' ? 'bad' : 'good'}">${safeText(b.sprt || '—')}</span></td><td><span class="result-chip ${b.accepted ? 'good' : 'bad'}">${b.accepted ? 'ACCEPT' : 'REJECT'}</span></td></tr>`).join('') : '<tr><td colspan="7" class="empty">No block results.</td></tr>';
+
+      $('qdsTrace').innerHTML = makeTrace([
+        `Generated ${data.key_generation?.public_qubits ?? '—'} quantum public-key states from l = ${data.key_generation?.message_length_l ?? '—'} and λ = ${data.signature?.entries_per_block ?? '—'}.`,
+        `Teleported the public-key states using simulated Bell measurement and Pauli correction; average fidelity = ${num(data.teleportation?.average_fidelity)}.`,
+        `Constructed the signature as basis + eigenvalue entries for each message bit.`,
+        data.attack_description || 'No attack was injected.',
+        `Performed ${data.verification?.total_measurements ?? '—'} projective measurements and observed ${data.verification?.total_mismatches ?? '—'} mismatches.`,
+        `Final decision: ${decision.replaceAll('_',' ')}.`
+      ]);
+
+      const x = blocks.map(b => b.block), y = blocks.map(b => Number(b.mismatch_rate || 0)), s = Number($('qds_threshold').value);
+      Plotly.newPlot('qdsChart', [
+        {x, y, mode:'lines+markers', name:'Observed mismatch', line:{color:'#e57b1f',width:3}, marker:{color:'#e57b1f',size:8}, hovertemplate:'Block %{x}<br>Mismatch %{y:.2%}<extra></extra>'},
+        {x, y:x.map(()=>s), mode:'lines', name:'Threshold', line:{color:'#ac9f91',dash:'dash',width:2}, hovertemplate:'Threshold %{y:.2%}<extra></extra>'}
+      ], {...plotBase, title:{text:'Observed mismatch by block',font:{size:14,color:'#453d35'}}, xaxis:{...plotBase.xaxis,title:'Message block',dtick:1}, yaxis:{...plotBase.yaxis,title:'Mismatch rate',range:[0,1],tickformat:'.0%'}}, plotConfig);
+
+      updateHero(decision, data.verification?.mismatch_rate, data.teleportation?.average_fidelity, data.attack_description || 'Latest QDS protocol result.');
+    }
+
+    function makeTrace(lines) { return lines.map((line,i)=>`<div class="trace-line"><div class="trace-no">${i+1}</div><div class="trace-text">${safeText(line)}</div></div>`).join(''); }
+
+    function resetQDS() {
+      $('qds_message').value='10110011'; $('qds_lambda').value=32; $('qds_noise').value=.02; $('qds_threshold').value=.20; $('qds_seed').value=42; $('qds_attack').value='none';
+      $('qdsDecision').className='decision neutral'; $('qdsDecision').textContent='READY'; $('qdsReason').textContent='No QDS protocol experiment has been executed.'; $('qdsAttackBadge').textContent='NO RUN';
+      ['m_l','m_qubits','m_fidelity','m_meas','m_mm','m_rate','msgOriginal','msgVerified','msgDiff'].forEach(id=>$(id).textContent='—');
+      $('qdsTrace').innerHTML='<div class="empty">Run an experiment to see each protocol stage.</div>';
+      $('qdsTable').innerHTML='<tr><td colspan="7" class="empty">No results yet.</td></tr>';
+      Plotly.purge('qdsChart'); updateHero('Ready',NaN,NaN,'Run a QDS experiment or threat test.');
+    }
+
+    function setQDSPreset(attack, lowNoise=false) {
+      $('qds_attack').value = attack;
+      if (lowNoise) $('qds_noise').value = '0.00';
+      else $('qds_noise').value = '0.02';
+      runQDS();
+    }
+
+    async function runScenario() {
+      const body = {
+        scenario: $('scenario').value,
+        n_copies: Number($('n').value), block_length: Number($('lambda').value), blocks: Number($('blocks').value),
+        noise_epsilon: Number($('noise').value), threshold: Number($('threshold').value), bell_tests: Number($('bell').value), seed: Number($('seed').value),
+        verifier_id:'verifier-1', key_id:'demo-ui-key', session_id:'ui-session-' + Date.now()
+      };
+      setBusy('scenarioBtn', true, 'Analyzing…', 'Run Security Analysis');
+      try {
+        const res = await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const data = await res.json();
+        if(!res.ok) throw new Error(data.detail || 'Scenario request failed');
+        renderScenario(data);
+        addHistory({source:'Sandbox',decision:data.decision,mismatchRate:data.blocks?.length ? data.blocks.reduce((a,b)=>a+Number(b.mismatch_rate||0),0)/data.blocks.length : 0,fidelity:data.teleportation_fidelity,scenario:data.scenario});
+      } catch(e) { $('decision').className='decision reject'; $('decision').textContent='ERROR'; $('runtime').textContent=e.message; updateHero('ERROR',NaN,NaN,e.message); }
+      finally { setBusy('scenarioBtn', false, 'Analyzing…', 'Run Security Analysis'); }
+    }
+
+    function renderScenario(data) {
+      const decision=data.decision || 'UNKNOWN'; $('decision').className='decision '+decisionClass(decision); $('decision').textContent=decision.replaceAll('_',' '); $('runtime').textContent=`${data.runtime_ms ?? '—'} ms · ${data.scenario}`; $('scenarioBadge').textContent=(data.scenario||'').replaceAll('_',' ').toUpperCase();
+      $('f').textContent=num(data.security?.forging_fidelity_Fn); $('q').textContent=num(data.security?.forging_mismatch_q); $('bound').textContent=Number.isFinite(Number(data.security?.model_forgery_bound)) ? Number(data.security.model_forgery_bound).toExponential(3) : '—'; $('tf').textContent=num(data.teleportation_fidelity); $('bp').textContent=pct(data.bell_witness?.pass_rate); $('ba').textContent=data.bell_witness?.aborted?'YES':'NO'; $('raw').textContent=JSON.stringify(data,null,2);
+      const blocks=data.blocks||[];
+      Plotly.newPlot('chart', [
+        {x:blocks.map(b=>b.block),y:blocks.map(b=>b.mismatch_rate),mode:'lines+markers',name:'Observed mismatch',line:{color:'#e57b1f',width:3},marker:{color:'#e57b1f',size:8},hovertemplate:'Block %{x}<br>%{y:.2%}<extra></extra>'},
+        {x:blocks.map(b=>b.block),y:blocks.map(()=>data.parameters.threshold),mode:'lines',name:'Threshold',line:{color:'#ac9f91',dash:'dash',width:2},hovertemplate:'Threshold %{y:.2%}<extra></extra>'}
+      ], {...plotBase,title:{text:'Block verification statistics',font:{size:14,color:'#453d35'}},xaxis:{...plotBase.xaxis,title:'Block',dtick:1},yaxis:{...plotBase.yaxis,title:'Mismatch rate',range:[0,1],tickformat:'.0%'}},plotConfig);
+
+      const bp=Number(data.bell_witness?.pass_count||0), bf=Number(data.bell_witness?.failure_count||0);
+      Plotly.newPlot('bellChart',[{labels:['Pass','Fail'],values:[bp,bf],type:'pie',hole:.58,marker:{colors:['#2f7d4a','#d9b4a9']},textinfo:'label+percent',hovertemplate:'%{label}: %{value}<extra></extra>'}],{...plotBase,title:{text:'Bell witness outcomes',font:{size:14,color:'#453d35'}},margin:{t:46,l:12,r:12,b:18},legend:{orientation:'h'}},plotConfig);
+
+      const q=data.parameters?.q1, e0=data.parameters?.e0;
+      let cards=[
+        `<div class="overview-card"><span class="result-chip good">LEGITIMATE BASELINE</span><p>e₀ = ${num(e0,4)}. This is the modeled legitimate mismatch level for the configured noise.</p></div>`,
+        `<div class="overview-card"><span class="result-chip ${Number(q) > .2 ? 'bad':'warn'}">ATTACK HYPOTHESIS</span><p>q₁ = ${num(q,4)}. This represents the attack-side mismatch assumption used by the statistical layer.</p></div>`,
+        `<div class="overview-card"><span class="result-chip ${data.bell_witness?.aborted ? 'bad':'good'}">CHANNEL STATUS</span><p>Bell witness ${data.bell_witness?.aborted ? 'failed and triggered an abort.' : 'did not trigger an abort in this run.'}</p></div>`
+      ];
+      if(data.scenario==='replay') cards.push(`<div class="overview-card"><span class="result-chip warn">REPLAY CONTROL</span><p>Replay is a freshness/ledger event. The quantum signature can remain valid while the session is rejected as stale or reused.</p></div>`);
+      if(data.scenario==='unauthorized') cards.push(`<div class="overview-card"><span class="result-chip warn">AUTHORIZATION CONTROL</span><p>The ledger checks the verifier identity separately from quantum measurement statistics.</p></div>`);
+      if(data.scenario.startsWith('forgery')) cards.push(`<div class="overview-card"><span class="result-chip bad">EXPOSURE</span><p>The modeled quantities change with n = ${safeText(data.parameters?.n_copies)} exposed copies.</p></div>`);
+      $('scenarioExplanation').innerHTML=cards.join('');
+      const avg=data.blocks?.length ? data.blocks.reduce((a,b)=>a+Number(b.mismatch_rate||0),0)/data.blocks.length : NaN;
+      updateHero(decision,avg,data.teleportation_fidelity,`Latest sandbox result: ${String(data.scenario||'').replaceAll('_',' ')}.`);
+    }
+
+    function applyPreset(name){
+      if(name!=='baseline') return;
+      $('scenario').value='legitimate'; $('n').value=0; $('lambda').value=100; $('blocks').value=8; $('noise').value=.02; $('threshold').value=.20; $('bell').value=200; $('seed').value=42;
+    }
+
+    async function loadFormula(){ const n=Number($('formulaN').value); try { const res=await fetch('/api/formula/'+encodeURIComponent(n)); const data=await res.json(); if(!res.ok) throw new Error(data.detail||'Formula request failed'); $('formula_n').textContent=data.n; $('formula_f').textContent=num(data.F_n); $('formula_q').textContent=num(data.q); $('barN').style.width=`${Math.min(data.n/20,1)*100}%`; $('barNVal').textContent=data.n; $('barF').style.width=`${Number(data.F_n)*100}%`; $('barFVal').textContent=pct(data.F_n); $('barQ').style.width=`${Number(data.q)*100}%`; $('barQVal').textContent=pct(data.q); await plotFormula(n); } catch(e){ $('formula_f').textContent='Error'; $('formula_q').textContent=e.message; }}
+
+    async function plotFormula(selectedN){
+      const xs=Array.from({length:11},(_,i)=>i); const values=await Promise.all(xs.map(async n=>(await fetch('/api/formula/'+n)).json()));
+      Plotly.newPlot('formulaChart',[{x:xs,y:values.map(v=>v.F_n),mode:'lines+markers',name:'F(n)',line:{color:'#e57b1f',width:3},marker:{color:'#e57b1f',size:7},hovertemplate:'n=%{x}<br>F(n)=%{y:.4f}<extra></extra>'},{x:xs,y:values.map(v=>v.q),mode:'lines+markers',name:'q(n)',line:{color:'#7f7469',width:2,dash:'dash'},marker:{color:'#7f7469',size:6},hovertemplate:'n=%{x}<br>q(n)=%{y:.4f}<extra></extra>'}],{...plotBase,title:{text:'Exposure vs modeled security quantities',font:{size:14,color:'#453d35'}},xaxis:{...plotBase.xaxis,title:'Exposed public-key copies n',dtick:1},yaxis:{...plotBase.yaxis,title:'Value',range:[0,1]},shapes:[{type:'line',x0:selectedN,x1:selectedN,y0:0,y1:1,line:{color:'#e57b1f',dash:'dot',width:2}}]},plotConfig);
+    }
+
+    renderHistory();
+    checkHealth();
+    loadFormula();
+  </script>
+</body>
+</html>
